@@ -2,6 +2,7 @@
 import { geminiService, GeminiConfig } from './geminiService';
 import { enhancedTranslationService, TranslationConfig, TranslationResult } from './enhancedTranslationService';
 import { enhancedSpeechService, SpeechConfig } from './enhancedSpeechService';
+import { signLanguageService } from './signLanguageService';
 
 export interface ServiceManagerConfig {
   gemini?: GeminiConfig;
@@ -19,6 +20,7 @@ export class ServiceManager {
   private geminiService = geminiService;
   private translationService = enhancedTranslationService;
   private speechService = enhancedSpeechService;
+  private signService = signLanguageService;
 
   constructor(config?: ServiceManagerConfig) {
     this.configure(config);
@@ -140,11 +142,13 @@ export class ServiceManager {
     gemini: boolean;
     translation: boolean;
     speech: boolean;
+    sign: boolean;
   } {
     return {
       gemini: this.geminiService.isConfigured(),
       translation: this.translationService.isConfigured(),
-      speech: this.speechService.isConfigured()
+      speech: this.speechService.isConfigured(),
+      sign: this.signService.isSupported()
     };
   }
 

@@ -14,13 +14,15 @@ import {
   Languages,
   User,
   Stethoscope,
-  Loader2
+  Loader2,
+  Hand
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebaseSession } from "@/hooks/useFirebaseSession";
 import { translationService, supportedLanguages } from "@/services/translationService";
 import { speechService } from "@/services/speechService";
 import { serviceManager } from "@/services/serviceManager";
+import SignCapture from '@/components/SignCapture';
 
 interface ChatInterfaceProps {
   role: 'doctor' | 'patient';
@@ -35,6 +37,7 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
   const [isSignLanguageVisible, setIsSignLanguageVisible] = useState(true);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [signMode, setSignMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -330,6 +333,12 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
 
         {/* Input Area */}
         <div className="p-4 space-y-3">
+          {signMode && (
+            <SignCapture
+              onConfirm={(text) => setInputText((prev) => (prev ? prev + ' ' + text : text))}
+              onClose={() => setSignMode(false)}
+            />
+          )}
           <div className="flex gap-2">
             <Input
               placeholder="Type your message..."
@@ -340,6 +349,9 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
             />
             <Button onClick={handleSendMessage} disabled={!inputText.trim() || isTranslating}>
               {isTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+            <Button variant={signMode ? 'secondary' : 'outline'} onClick={() => setSignMode((v) => !v)} title="Sign language mode">
+              <Hand className="h-4 w-4" />
             </Button>
           </div>
           
