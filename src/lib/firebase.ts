@@ -58,14 +58,14 @@ export { auth };
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
   try {
     connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log('Connected to Firestore emulator');
+    console.log('Connected to Firestore emulator on port 8080');
   } catch (error) {
     console.warn('Failed to connect to Firestore emulator:', error);
   }
   
   try {
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-    console.log('Connected to Auth emulator');
+    console.log('Connected to Auth emulator on port 9099');
   } catch (error) {
     console.warn('Failed to connect to Auth emulator:', error);
   }

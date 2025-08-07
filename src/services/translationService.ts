@@ -94,8 +94,8 @@ class TranslationService {
       return mockTranslations[text][targetLang];
     }
 
-    // Fallback: simple prefixed translation
-    return `[${targetLang.toUpperCase()}] ${text}`;
+    // Fallback: simple translation without prefix
+    return text;
   }
 
   // Real Google Cloud Translation

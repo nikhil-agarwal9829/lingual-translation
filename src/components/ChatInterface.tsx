@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirebaseSession } from "@/hooks/useFirebaseSession";
 import { translationService, supportedLanguages } from "@/services/translationService";
 import { speechService } from "@/services/speechService";
+import { serviceManager } from "@/services/serviceManager";
 
 interface ChatInterfaceProps {
   role: 'doctor' | 'patient';
@@ -33,6 +34,7 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
   const [selectedLanguage, setSelectedLanguage] = useState(role === 'doctor' ? 'en' : 'ta');
   const [isSignLanguageVisible, setIsSignLanguageVisible] = useState(true);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -53,35 +55,64 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
   useEffect(() => {
     const initSession = async () => {
       if (role === 'doctor') {
-        await createSession(selectedLanguage);
+        await createSession('en'); // Doctor always uses English
       } else {
-        await joinSession(selectedLanguage);
+        await joinSession(selectedLanguage); // Patient uses their selected language
       }
     };
 
     if (!isLoading && !sessionData) {
       initSession();
     }
-  }, [role, sessionId, selectedLanguage, isLoading, sessionData]);
+  }, [role, sessionId, isLoading, sessionData]);
 
-  const handleSendMessage = async () => {
+  // Update session when language changes (for patient)
+  useEffect(() => {
+    if (role === 'patient' && sessionData && selectedLanguage !== sessionData.patientLanguage) {
+      updateLanguage(selectedLanguage);
+    }
+  }, [selectedLanguage, role, sessionData]);
+
+    const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
     setIsTranslating(true);
     try {
-      const otherLanguage = sessionData?.doctorLanguage === selectedLanguage 
-        ? sessionData?.patientLanguage || 'ta'
-        : sessionData?.doctorLanguage || 'en';
+      // Get the other person's language from session data
+      const otherLanguage = role === 'doctor' 
+        ? (sessionData?.patientLanguage || 'ta')
+        : (sessionData?.doctorLanguage || 'en');
 
-      const translations = await translationService.translateMultiple(
-        inputText.trim(),
-        selectedLanguage,
-        [selectedLanguage, otherLanguage]
-      );
+      console.log(`Translating from ${selectedLanguage} to ${otherLanguage}`);
+      console.log('Service status:', serviceManager.getServiceStatus());
 
+      // Create translations for both languages
+      let translations: Record<string, string> = {};
+      
+      // Always include the original language
+      translations[selectedLanguage] = inputText.trim();
+
+      // Translate to the other person's language
+      try {
+        const translatedText = await serviceManager.translateText(
+          inputText.trim(),
+          selectedLanguage,
+          otherLanguage
+        );
+        
+        translations[otherLanguage] = translatedText;
+        console.log(`Translation result: ${translatedText}`);
+      } catch (error) {
+        console.warn('Translation failed, using fallback:', error);
+        // Fallback: just use original text for other language
+        translations[otherLanguage] = inputText.trim();
+      }
+
+      console.log('Sending message with translations:', translations);
       await sendMessage(inputText.trim(), translations);
       setInputText("");
     } catch (error) {
+      console.error('Message sending failed:', error);
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -98,6 +129,43 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
       title: "Session ID copied",
       description: role === 'doctor' ? "Share this with your patient" : "Session ID copied",
     });
+  };
+
+  // Voice functions
+  const handleStartListening = async () => {
+    try {
+      setIsRecording(true);
+      const result = await speechService.startListening(selectedLanguage);
+      setInputText(result);
+      setIsRecording(false);
+    } catch (error) {
+      setIsRecording(false);
+      toast({
+        title: "Error",
+        description: "Failed to start voice recording",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStopListening = () => {
+    speechService.stopListening();
+    setIsRecording(false);
+  };
+
+  const handleSpeak = async (text: string) => {
+    try {
+      setIsSpeaking(true);
+      await speechService.speak(text, selectedLanguage);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to play voice",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSpeaking(false);
+    }
   };
 
   if (isLoading) {
@@ -140,7 +208,10 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
             </div>
             
             <div className="flex items-center gap-3">
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <Select 
+                value={selectedLanguage} 
+                onValueChange={setSelectedLanguage}
+              >
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
@@ -192,21 +263,63 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
                           <Badge variant="secondary" className="text-xs">Voice</Badge>
                         )}
                       </div>
-                      <p className="text-sm">{message.originalText}</p>
+                      <p className="text-sm">
+                        {message.sender === role 
+                          ? message.originalText 
+                          : (message.translations[selectedLanguage] || message.originalText)
+                        }
+                      </p>
+                      {/* Show language info */}
+                      <div className="text-xs opacity-50 mt-1">
+                        {message.sender !== role && message.translations[selectedLanguage] && 
+                         message.translations[selectedLanguage] !== message.originalText && (
+                          <span>Translated to {selectedLanguage}</span>
+                        )}
+                      </div>
+                      {/* Debug info - remove this later */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="text-xs opacity-50 mt-1">
+                          Debug: {JSON.stringify(message.translations)}
+                        </div>
+                      )}
                     </div>
                     
-                    {message.sender !== role && (
+                    {/* Show original text for received messages if different from translation */}
+                    {message.sender !== role && 
+                     message.translations[selectedLanguage] && 
+                     message.translations[selectedLanguage] !== message.originalText && (
                       <div className="bg-accent/50 p-2 rounded border-l-2 border-accent">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm text-accent-foreground">
-                            {message.translations[selectedLanguage] || message.originalText}
+                          <p className="text-sm text-accent-foreground opacity-70">
+                            Original: {message.originalText}
                           </p>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleSpeak(message.originalText)}
+                            disabled={isSpeaking}
+                          >
                             <Volume2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
                     )}
+                    
+                    {/* Voice button for main message */}
+                    <div className="flex justify-end mt-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleSpeak(
+                          message.sender === role 
+                            ? message.originalText 
+                            : (message.translations[selectedLanguage] || message.originalText)
+                        )}
+                        disabled={isSpeaking}
+                      >
+                        <Volume2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -231,9 +344,27 @@ export default function ChatInterface({ role, sessionId, onEndSession }: ChatInt
           </div>
           
           <div className="flex justify-center">
-            <Button variant="secondary" size="lg" className="px-8">
-              <Mic className="h-4 w-4 mr-2" />
-              Hold to Speak
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              className="px-8"
+              onMouseDown={handleStartListening}
+              onMouseUp={handleStopListening}
+              onTouchStart={handleStartListening}
+              onTouchEnd={handleStopListening}
+              disabled={isRecording}
+            >
+              {isRecording ? (
+                <>
+                  <MicOff className="h-4 w-4 mr-2" />
+                  Recording...
+                </>
+              ) : (
+                <>
+                  <Mic className="h-4 w-4 mr-2" />
+                  Hold to Speak
+                </>
+              )}
             </Button>
           </div>
         </div>

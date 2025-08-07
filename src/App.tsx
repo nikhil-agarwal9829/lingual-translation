@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import Doctor from "./pages/Doctor";
 import Patient from "./pages/Patient";
 import NotFound from "./pages/NotFound";
+import { GeminiExample } from "./components/GeminiExample";
+import { GeminiTest } from "./components/GeminiTest";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/doctor/:sessionId" element={<Doctor />} />
           <Route path="/patient/:sessionId" element={<Patient />} />
+          <Route path="/test-gemini" element={<GeminiExample />} />
+          <Route path="/test" element={<GeminiTest />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -66,7 +66,7 @@ This project is built with:
 
 ### Environment Variables
 
-This project uses Firebase for real-time database and authentication. To set up Firebase:
+This project uses Firebase for real-time database and authentication, and Google Cloud Translation API for language translation. To set up the environment:
 
 1. Copy the `.env.example` file to `.env`:
    ```sh
@@ -74,6 +74,12 @@ This project uses Firebase for real-time database and authentication. To set up 
    ```
 
 2. Fill in your Firebase configuration values in the `.env` file.
+
+3. For translation functionality, add your Google Cloud Translation API credentials:
+   - `VITE_GOOGLE_TRANSLATE_API_KEY`: Your Google Cloud API key with Translation API enabled
+   - `VITE_GOOGLE_TRANSLATE_PROJECT_ID`: Your Google Cloud project ID
+
+   If these values are not provided, the application will fall back to mock translations.
 
 ### Firebase Emulators (for local development)
 
@@ -109,9 +115,11 @@ Simply open [Lovable](https://lovable.dev/projects/c6903214-63fe-485e-9746-5fa55
 
 Before deploying to production for connecting multiple devices:
 
-1. **Update Firebase Configuration**:
-   - Create a `.env.production` file with your production Firebase credentials
+1. **Update Configuration**:
+   - Create a `.env.production` file with your production credentials
+   - Include both Firebase and Google Cloud Translation API credentials
    - Ensure your Firebase project has Firestore and Authentication enabled in the Firebase Console
+   - Make sure your Google Cloud project has the Translation API enabled
 
 2. **Review Firestore Security Rules**:
    - The `firestore.rules` file has been updated with more secure rules for production
